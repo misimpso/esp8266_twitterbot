@@ -16,15 +16,12 @@ class oauth_request:
         """ Post method with OAuth 1.0
         """
         auth_header = cls.__create_auth_header("POST", url, params, **key_ring)
-        print(auth_header)
-        # return
         headers = {"Authorization": auth_header, "Context-Type": "application/x-www-form-urlencoded", "User-Agent": "OAuth gem v0.4.4"}
         url += "?{}".format(
             "&".join([
                 "{}={}".format(cls.__percent_encode(str(k)), cls.__percent_encode(str(v)))
                 for k, v in params.items()
             ]))
-        print("URL : {}".format(url))
         return requests.post(url, headers=headers)
 
     @classmethod
@@ -35,9 +32,9 @@ class oauth_request:
         oauth = {
             "include_entities": "true",
             "oauth_consumer_key": consumer_key,
-            "oauth_nonce": "kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg",  # cls.__generate_nonce(),  
+            "oauth_nonce": cls.__generate_nonce(),  
             "oauth_signature_method": "HMAC-SHA1",
-            "oauth_timestamp": 1318622958,  # 946684800 + time.time(),
+            "oauth_timestamp": 946684800 + time.time(),
             "oauth_token": access_token,
             "oauth_version": 1.0,
         }
@@ -62,12 +59,6 @@ class oauth_request:
         ])
 
         signing_key = "{}&{}".format(consumer_secret, access_token_secret)
-
-        print("")
-        print("Signing Key : {}".format(signing_key))
-        print("Base String : {}".format(signature_base_string))
-        print("")
-
         sanitized_oauth["oauth_signature"] = cls.__generate_hmac(signing_key, signature_base_string)
         return "OAuth {}".format(
             ", ".join([
