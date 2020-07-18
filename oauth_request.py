@@ -34,9 +34,8 @@ class oauth_request:
             https://developer.twitter.com/en/docs/basics/authentication/oauth-1-0a/authorizing-a-request
         """
         oauth = {
-            "include_entities": "true",
             "oauth_consumer_key": consumer_key,
-            "oauth_nonce": cls.__generate_nonce(),  
+            "oauth_nonce": cls.__generate_nonce(),
             "oauth_signature_method": "HMAC-SHA1",
             "oauth_timestamp": 946684800 + time.time(),
             "oauth_token": access_token,
@@ -52,7 +51,6 @@ class oauth_request:
             flat_oauth.append("{}={}".format(key, value))
             if key != "include_entities":
                 sanitized_oauth[key] = value
-            
 
         [sanitized_oauth.pop(key) for key in data]
 
