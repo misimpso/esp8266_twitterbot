@@ -2,31 +2,52 @@ import random
 import ubinascii
 import ujson as json
 import ure as re
-import urequests as requests
 import utime as time
 
 from uhashlib import sha1
+from urequests import request
 
 class oauth_request:
     SHA1_BLOCK_SIZE = 64
     percent_validate = re.compile("[A-Za-z0-9-_.~]")
 
     @classmethod
-    def post(cls, url, params, key_ring):
-        """ Post method with OAuth 1.0
+    def get(cls, *args, **kwargs):
+        """ Send authenticated `GET` request.
         """
-        auth_header = cls.__create_auth_header("POST", url, params, **key_ring)
+        return cls.__send_request("GET", *args, **kwargs)
+
+    @classmethod
+    def post(cls, *args, **kwargs):
+        """ Send authenticated `POST` request.
+        """
+        return cls.__send_request("POST", *args, **kwargs)
+
+    @classmethod
+    def __send_request(cls, method, url, params, key_ring):
+        """ Send an OAuth 1.0 authenticated request to given `url`.
+        
+        Args:
+            method (string, GET|POST): Request type.
+            url (string): URL to send request to.
+            params (dict): Dictionary of parameters to append to URL.
+            key_ring (dict): API credentials for authentication.
+        
+        Returns:
+            Request's response.
+        """
+        method = method.upper()
+        auth_header = cls.__create_auth_header(method, url, params, **key_ring)
         headers = {
             "Authorization": auth_header,
             "Content-Type": "application/x-www-form-urlencoded"
         }
-
         url += "?{}".format(
             "&".join([
                 "{}={}".format(*map(cls.__percent_encode, map(str, item)))
                 for item in params.items()
             ]))
-        return requests.post(url, headers=headers)
+        return request(method=method, url=url, headers=headers)
 
     @classmethod
     def __create_auth_header(cls, method, url, data, consumer_key, consumer_secret, access_token, access_token_secret):
