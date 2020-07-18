@@ -5,3 +5,5 @@ test.py
 learnings.txt
 
 .vscode/launch.json
+boot.py
+credentials.py
