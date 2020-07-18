@@ -60,8 +60,9 @@ class oauth_request:
             cls.__percent_encode("&".join(flat_oauth))
         ])
 
-        signing_key = "{}&{}".format(consumer_secret, access_token_secret)
-        sanitized_oauth["oauth_signature"] = cls.__generate_hmac(signing_key, signature_base_string)
+        signing_key = "&".join([consumer_secret, access_token_secret])
+        sanitized_oauth["oauth_signature"] = cls.__percent_encode(
+            cls.__generate_hmac(signing_key, signature_base_string))
         return "OAuth {}".format(
             ", ".join([
                 '{}="{}"'.format(key, sanitized_oauth[key])
