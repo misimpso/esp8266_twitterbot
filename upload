@@ -1,0 +1,17 @@
+#!/bin/bash
+ESP8266_IP=192.168.4.1
+cd webrepl-master/
+
+files=(
+boot.py
+main.py
+actions.py
+credentials.py
+oauth_request.py
+)
+for file in "${files[@]}"; do
+    python webrepl_cli.py -p mikey ../$file $ESP8266_IP:/$file
+    if [ $? -ne 0 ]; then
+        break
+    fi
+done
