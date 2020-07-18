@@ -16,7 +16,11 @@ class oauth_request:
         """ Post method with OAuth 1.0
         """
         auth_header = cls.__create_auth_header("POST", url, params, **key_ring)
-        headers = {"Authorization": auth_header, "Context-Type": "application/x-www-form-urlencoded", "User-Agent": "OAuth gem v0.4.4"}
+        headers = {
+            "Authorization": auth_header,
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
         url += "?{}".format(
             "&".join([
                 "{}={}".format(cls.__percent_encode(str(k)), cls.__percent_encode(str(v)))
@@ -86,6 +90,9 @@ class oauth_request:
 
     @classmethod
     def __percent_encode(cls, dirty_string):
+        """ Substitue characters in the given `dirty_string` that aren't in the regex
+            `[A-Za-z0-9-_.~]` with their hexadecimal unicode code point.
+        """
         dirty_list = list(dirty_string)
         for d_i, dirty_item in enumerate(dirty_list):
             if not cls.percent_validate.match(dirty_item):
@@ -94,8 +101,10 @@ class oauth_request:
 
     @classmethod
     def __generate_nonce(cls):
+        """ Generate a 32 character, strictly alpha-numeric string.
+        """
         random.seed(time.ticks_us())
-        alpha_num = sum(map(list, (range(48, 58), range(65, 91), range(97, 123))), [])
+        alpha_num = sum(map(list, (range(48, 58),range(65, 91), range(97, 123))), [])
         nonce = []
         for _ in range(32):
             rand_index = len(alpha_num)
