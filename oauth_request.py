@@ -23,8 +23,8 @@ class oauth_request:
 
         url += "?{}".format(
             "&".join([
-                "{}={}".format(cls.__percent_encode(str(k)), cls.__percent_encode(str(v)))
-                for k, v in params.items()
+                "{}={}".format(*map(cls.__percent_encode, map(str, item)))
+                for item in params.items()
             ]))
         return requests.post(url, headers=headers)
 
