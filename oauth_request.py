@@ -1,15 +1,30 @@
+from parse_json import ParseJson
 import random
-import ubinascii
-import ujson as json
-import ure as re
-import utime as time
+import socket
+import ssl
 
-from uhashlib import sha1
-from urequests import request
+try:
+    import ubinascii as binascii
+    import ujson as json
+    import ure as re
+    import utime as time
+
+    from uhashlib import sha1
+    from urequests import request
+except:
+    import binascii
+    import json
+    import re
+    import time
+
+    from hashlib import sha1
+    from requests import request
+    
 
 class oauth_request:
     SHA1_BLOCK_SIZE = 64
     percent_validate = re.compile("[A-Za-z0-9-_.~]")
+    http_status_regex = re.compile("HTTP/1.1 ([{\d}]+) ([A-Z-z0-9 ]+)\\r\\n")
 
     @classmethod
     def get(cls, *args, **kwargs):
@@ -24,7 +39,7 @@ class oauth_request:
         return cls.__send_request("POST", *args, **kwargs)
 
     @classmethod
-    def __send_request(cls, method, url, params, key_ring):
+    def __send_request_old(cls, method, url, params, key_ring):
         """ Send an OAuth 1.0 authenticated request to given `url`.
         
         Args:
@@ -50,6 +65,82 @@ class oauth_request:
         return request(method=method, url=url, headers=headers)
 
     @classmethod
+    def __send_request(cls, method, url, params, key_ring, filter_map):
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
+
+        protocol, _, host, path = url.split("/", 3)
+        path += "?{}".format(
+            "&".join([
+                "{}={}".format(*map(cls.__percent_encode, map(str, item)))
+                for item in params.items()]))
+        
+        if protocol == "http:":
+            addr = socket.getaddrinfo(host, 80)[0][-1]
+            sock.connect(addr)
+        elif protocol == "https:":
+            addr = socket.getaddrinfo(host, 443)[0][-1]
+            sock.connect(addr)
+            sock = ssl.wrap_socket(sock)
+
+        packet = [
+            "{} /{} HTTP/1.1".format(method, path),
+            "Accept: */*",
+            "Connection: close",
+            "User-Agent: Python/0.1",
+            "Content-Length: 0",
+            "Content-Type: application/x-www-form-urlencoded",
+            "Authorization: {}".format(cls.__create_auth_header(method, url, params, **key_ring)),
+            "Host: {}".format(host),
+            "\n"
+        ]
+        packet = b"\r\n".join(map(str.encode, packet))
+
+        sock.send(packet)
+        del packet
+
+        http_status_buffer = []
+        status_byte = None
+        while status_byte is not "\n":
+            status_byte = sock.recv(1).decode()
+            http_status_buffer.append(status_byte)
+        http_status_buffer = "".join(http_status_buffer)
+        http_status = cls.http_status_regex.findall(http_status_buffer)
+        if len(http_status):
+            http_status = http_status[0]
+            print(http_status)
+        else:
+            print("HTTP status not found. [{}]".format(http_status_buffer))
+            return
+
+        if http_status[0] == '200':
+            while True:
+                return_header_buffer = []
+                rh_byte = None
+                while rh_byte is not "\n":
+                    rh_byte = sock.recv(1).decode()
+                    return_header_buffer.append(rh_byte)
+                return_header_buffer = "".join(return_header_buffer)
+                if return_header_buffer == "\r\n":
+                    break
+            
+            json_data = []
+            while True:
+                data = sock.recv(1024).decode()
+                if data:
+                    json_data.appen(data)
+                else:
+                    break
+
+            json_data = json.loads("".join(json_data))
+            sock.close()
+            return json_data
+
+        sock.close()
+        return http_status
+
+    @classmethod
     def __create_auth_header(cls, method, url, data, consumer_key, consumer_secret, access_token, access_token_secret):
         """ Build OAuth header authentication string.
             https://developer.twitter.com/en/docs/basics/authentication/oauth-1-0a/authorizing-a-request
@@ -58,7 +149,7 @@ class oauth_request:
             "oauth_consumer_key": consumer_key,
             "oauth_nonce": cls.__generate_nonce(),
             "oauth_signature_method": "HMAC-SHA1",
-            "oauth_timestamp": 946684800 + time.time(),
+            "oauth_timestamp": int(time.time()), # 946684800 + time.time(),
             "oauth_token": access_token,
             "oauth_version": 1.0,
         }
@@ -106,7 +197,7 @@ class oauth_request:
         inner.update(message)
         outer.update(inner.digest())
         hmac = outer.digest()
-        return ubinascii.b2a_base64(hmac).decode()[:-1]
+        return binascii.b2a_base64(hmac).decode()[:-1]
 
     @classmethod
     def __percent_encode(cls, dirty_string):
@@ -123,7 +214,10 @@ class oauth_request:
     def __generate_nonce(cls):
         """ Generate a 32 character, strictly alpha-numeric string.
         """
-        random.seed(time.ticks_us())
+        if hasattr(time, 'ticks_us'):
+            random.seed(time.ticks_us())
+        else:
+            random.seed(time.time())
         alpha_num = sum(map(list, (range(48, 58),range(65, 91), range(97, 123))), [])
         nonce = []
         for _ in range(32):
