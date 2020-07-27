@@ -27,7 +27,18 @@ class Actions:
             "format": "compact",
             "lang": "eng"
         }
-        response = oauth_request.get(url=url, params=params, key_ring=self.key_ring)
+        filter_map = {
+            "status": [{
+                "text": True,
+                "id": True,
+                "user": {
+                    "id": True
+                }
+            }],
+            "errors": True
+        }
+        response = oauth_request.get(
+            url=url, params=params, key_ring=self.key_ring, filter_map=filter_map)
 
     def follow(self):
         pass
