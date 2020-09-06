@@ -65,16 +65,18 @@ class oauth_request:
         return request(method=method, url=url, headers=headers)
 
     @classmethod
-    def __send_request(cls, method, url, params, key_ring, filter_map):
+    def __send_request(cls, method, url, params, key_ring, filter_map = None):
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
 
         protocol, _, host, path = url.split("/", 3)
-        path += "?{}".format(
-            "&".join([
-                "{}={}".format(*map(cls.__percent_encode, map(str, item)))
-                for item in params.items()]))
+        path += "?{}".format("&".join([
+            "{}={}".format(*map(cls.__percent_encode, map(str, item)))
+            for item in params.items()
+        ]))
+
+        # print("{}//{}/{}".format(protocol, host, path))
         
         if protocol == "http:":
             addr = socket.getaddrinfo(host, 80)[0][-1]
@@ -102,10 +104,11 @@ class oauth_request:
 
         http_status_buffer = []
         status_byte = None
-        while status_byte is not "\n":
+        while status_byte != "\n":
             status_byte = sock.recv(1).decode()
             http_status_buffer.append(status_byte)
         http_status_buffer = "".join(http_status_buffer)
+        # print(http_status_buffer)
         http_status = cls.http_status_regex.findall(http_status_buffer)
         if len(http_status):
             http_status = http_status[0]
@@ -118,23 +121,29 @@ class oauth_request:
             while True:
                 return_header_buffer = []
                 rh_byte = None
-                while rh_byte is not "\n":
+                while rh_byte != "\n":
                     rh_byte = sock.recv(1).decode()
                     return_header_buffer.append(rh_byte)
                 return_header_buffer = "".join(return_header_buffer)
                 if return_header_buffer == "\r\n":
                     break
-            
-            json_data = []
-            while True:
-                data = sock.recv(1024).decode()
-                if data:
-                    json_data.appen(data)
-                else:
-                    break
+            if filter_map is not None:
+                pj = ParseJson(sock)
+                json_data = pj.parse_value(value_map=filter_map)[0] + "}"
+                sock.close()
+                print(json_data)
+                return json.loads(json_data)
 
-            json_data = json.loads("".join(json_data))
-            sock.close()
+            else:
+                json_data = []
+                while True:
+                    data = sock.recv(1024).decode()
+                    if data:
+                        json_data.append(data)
+                    else:
+                        break
+                # json_data = json.loads("".join(json_data))
+                sock.close()
             return json_data
 
         sock.close()
